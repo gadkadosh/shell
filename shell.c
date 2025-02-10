@@ -6,6 +6,9 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+volatile sig_atomic_t received_sigint = 0;
+void handle_sigint() { received_sigint = 1; }
+
 void read_command(char **command, size_t capacity) {
     size_t size = 0;
     int c;
@@ -25,13 +28,28 @@ void read_command(char **command, size_t capacity) {
         }
     } while (c != EOF && c != '\n');
     (*command)[size++] = '\0';
-
-    /*printf("command: %s size: %zu capacity: %zu\n", *command, size,
-     * capacity);*/
 }
-volatile sig_atomic_t received_sigint = 0;
 
-void handle_sigint() { received_sigint = 1; }
+void parse_argv(char ***argv, const char *command) {
+    char *command_copy = strdup(command);
+
+    char *token = strtok(command_copy, " ");
+    (*argv)[0] = strdup(token);
+    int i = 1;
+    while ((token = strtok(NULL, " ")) != NULL) {
+        (*argv)[i++] = strdup(token);
+    }
+    (*argv)[i] = NULL;
+    free(command_copy);
+}
+
+void free_argv(char **argv) {
+    char **tmp = argv;
+    while (*tmp != NULL) {
+        free(*tmp++);
+    }
+    free(argv);
+}
 
 int main(void) {
     struct sigaction sa;
@@ -70,10 +88,13 @@ int main(void) {
             return 0;
         }
 
+        char **argv = malloc(sizeof(*argv) * 10);
+        parse_argv(&argv, command);
+
         int status;
         pid_t pid = fork();
         if (pid == 0) {
-            if ((status = execve(command, NULL, NULL)) == -1) {
+            if ((status = execve(argv[0], argv, NULL)) == -1) {
                 printf("Error: %s\n", strerror(errno));
                 return 1;
             }
@@ -83,6 +104,7 @@ int main(void) {
         }
 
         free(command);
+        free_argv(argv);
     }
 
     return 0;
