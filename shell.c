@@ -78,7 +78,6 @@ int main(int argc, char *argv[], char *envp[]) {
     sigaction(SIGINT, &sa, NULL);
 
     int exit_status = -1;
-
     char prompt[64];
 
     while (1) {
@@ -105,10 +104,15 @@ int main(int argc, char *argv[], char *envp[]) {
             continue;
         } else if (command[0] == EOF) {
             free(command);
+            putchar('\n');
             return 0;
         }
 
         char **argv = malloc(sizeof(*argv) * 10);
+        if (argv == NULL) {
+            printf("Memory allocation failed\n");
+            exit(1);
+        }
         parse_argv(&argv, command);
 
         int is_builtin = execute_builtin(argv);
