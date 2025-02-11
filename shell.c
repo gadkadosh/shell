@@ -53,11 +53,11 @@ void free_argv(char **argv) {
     free(argv);
 }
 
-int execute_file(char **argv) {
+int execute_file(char *argv[], char *envp[]) {
     int status;
     pid_t pid = fork();
     if (pid == 0) {
-        if ((status = execve(argv[0], argv, NULL)) == -1) {
+        if ((status = execve(argv[0], argv, envp)) == -1) {
             printf("Error: %s\n", strerror(errno));
             exit(1);
         }
@@ -68,7 +68,10 @@ int execute_file(char **argv) {
     return 0;
 }
 
-int main(void) {
+int main(int argc, char *argv[], char *envp[]) {
+    (void)argc;
+    (void)argv;
+
     struct sigaction sa;
     sa.sa_handler = handle_sigint;
     sa.sa_flags = 0;
@@ -110,7 +113,7 @@ int main(void) {
 
         int is_builtin = execute_builtin(argv);
         if (is_builtin == -1) {
-            exit_status = execute_file(argv);
+            exit_status = execute_file(argv, envp);
         };
 
         free(command);
