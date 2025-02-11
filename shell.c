@@ -6,6 +6,8 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "builtins.h"
+
 volatile sig_atomic_t received_sigint = 0;
 void handle_sigint() { received_sigint = 1; }
 
@@ -51,6 +53,21 @@ void free_argv(char **argv) {
     free(argv);
 }
 
+int execute_file(char **argv) {
+    int status;
+    pid_t pid = fork();
+    if (pid == 0) {
+        if ((status = execve(argv[0], argv, NULL)) == -1) {
+            printf("Error: %s\n", strerror(errno));
+            exit(1);
+        }
+    } else {
+        waitpid(0, &status, 0);
+        return WEXITSTATUS(status);
+    }
+    return 0;
+}
+
 int main(void) {
     struct sigaction sa;
     sa.sa_handler = handle_sigint;
@@ -91,17 +108,10 @@ int main(void) {
         char **argv = malloc(sizeof(*argv) * 10);
         parse_argv(&argv, command);
 
-        int status;
-        pid_t pid = fork();
-        if (pid == 0) {
-            if ((status = execve(argv[0], argv, NULL)) == -1) {
-                printf("Error: %s\n", strerror(errno));
-                return 1;
-            }
-        } else {
-            waitpid(0, &status, 0);
-            exit_status = WEXITSTATUS(status);
-        }
+        int is_builtin = execute_builtin(argv);
+        if (is_builtin == -1) {
+            exit_status = execute_file(argv);
+        };
 
         free(command);
         free_argv(argv);

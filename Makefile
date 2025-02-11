@@ -1,4 +1,4 @@
-SOURCES = $(wildcard *.c)
+SOURCES = shell.c builtins.c
 OBJECTS = $(SOURCES:.c=.o)
 CC = cc
 CFLAGS = -g -Wall -Wextra -Werror
