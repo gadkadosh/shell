@@ -1,19 +1,25 @@
-SOURCES = shell.c builtins.c
-OBJECTS = $(SOURCES:.c=.o)
 CC = cc
 CFLAGS = -g -Wall -Wextra -Werror
-TARGET = shell
 
-all: $(TARGET)
+SRCDIR = src
+OBJDIR = obj
+BINDIR = bin
+SOURCES = $(wildcard $(SRCDIR)/*.c)
+OBJECTS = $(SOURCES:$(SRCDIR)/%.c=$(OBJDIR)/%.o)
+BIN = $(BINDIR)/shelly
 
-$(TARGET): $(OBJECTS)
-	$(CC) $(CFLAGS) $(SOURCES) -o $(TARGET)
+all: $(BIN)
 
-%.o: %.c
+$(BIN): $(OBJECTS)
+	@mkdir -p $(BINDIR)
+	$(CC) $(CFLAGS) $(SOURCES) -o $(BIN)
+
+$(OBJDIR)/%.o: $(SRCDIR)/%.c
+	@mkdir -p $(OBJDIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -rf $(TARGET) $(OBJECTS) *.dSYM
+	$(RM) -r $(BINDIR) $(OBJDIR)
 
 re: clean all
 
