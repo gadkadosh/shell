@@ -6,6 +6,12 @@
 
 #include "builtins.h"
 
+static int shelly_exit(char *argv[]) {
+    (void)argv;
+    exit(0);
+    return 0;
+}
+
 static int pwd(char *argv[]) {
     (void)argv;
     char *cwd = getcwd(NULL, 0);
@@ -24,6 +30,7 @@ static int cd(char *argv[]) {
 }
 
 static const builtin_t builtins[] = {
+    {.name = "exit", .func = shelly_exit},
     {.name = "cd", .func = cd},
     {.name = "pwd", .func = pwd},
 };
