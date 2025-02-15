@@ -1,7 +1,8 @@
 # shelly - A Simple Shell in C
 
 ## Overview
-*shelly* is a basic command-line shell implemented in C. It is a personal project which strives to replicate the core functionalities of a Unix shell, such as executing commands, handling built-in commands, and managing processes.
+**shelly** is a basic command-line shell implemented in C.
+**shelly**, which means *mine* *(שלי)* in hebrew, is a personal project which strives to replicate the core functionalities of a Unix shell, such as executing commands, handling built-in commands, and managing processes.
 
 ## Features
 - **Execute commands**: Run external commands using `execve`.
