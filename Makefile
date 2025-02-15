@@ -6,7 +6,7 @@ TARGET = shell
 
 all: $(TARGET)
 
-$(TARGET): $(SOURCES)
+$(TARGET): $(OBJECTS)
 	$(CC) $(CFLAGS) $(SOURCES) -o $(TARGET)
 
 %.o: %.c

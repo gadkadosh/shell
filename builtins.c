@@ -4,26 +4,40 @@
 #include <string.h>
 #include <unistd.h>
 
-static void pwd() {
+#include "builtins.h"
+
+static int pwd(char *argv[]) {
+    (void)argv;
     char *cwd = getcwd(NULL, 0);
     printf("%s\n", cwd);
     free(cwd);
+    return 0;
 }
 
-static void cd(char *filename) {
+static int cd(char *argv[]) {
+    char *filename = argv[1];
     int ret = chdir(filename);
     if (ret == -1) {
-        printf("Error: %s\n", strerror(errno));
+        printf("Error(cd): %s\n", strerror(errno));
     }
+    return ret;
 }
 
-int execute_builtin(char **argv) {
-    if (strcmp(argv[0], "pwd") == 0) {
-        pwd();
-    } else if (strcmp(argv[0], "cd") == 0) {
-        cd(argv[1]);
-    } else {
-        return -1;
+static const builtin_t builtins[] = {
+    {.name = "cd", .func = cd},
+    {.name = "pwd", .func = pwd},
+};
+
+builtin_func_t *find_builtin(char *command) {
+    (void)command;
+    (void)builtins;
+    int length = sizeof(builtins) / sizeof(builtin_t);
+
+    for (int i = 0; i < length; i++) {
+        if (strcmp(builtins[i].name, command) == 0) {
+            return builtins[i].func;
+        }
     }
-    return 0;
+
+    return NULL;
 }

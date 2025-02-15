@@ -1,3 +1,4 @@
+#include <dirent.h>
 #include <errno.h>
 #include <signal.h>
 #include <stdio.h>
@@ -11,7 +12,7 @@
 volatile sig_atomic_t received_sigint = 0;
 void handle_sigint() { received_sigint = 1; }
 
-void read_command(char **command, size_t capacity) {
+static void read_command(char **command, size_t capacity) {
     size_t size = 0;
     int c;
     do {
@@ -32,20 +33,30 @@ void read_command(char **command, size_t capacity) {
     (*command)[size++] = '\0';
 }
 
-void parse_argv(char ***argv, const char *command) {
+static char **create_argv(const char *command) {
+    char **argv = malloc(sizeof(*argv) * 10);
+    if (argv == NULL) {
+        return NULL;
+    }
+
     char *command_copy = strdup(command);
+    if (command_copy == NULL) {
+        printf("Memory reallocation failed\n");
+        exit(1);
+    }
 
     char *token = strtok(command_copy, " ");
-    (*argv)[0] = strdup(token);
+    argv[0] = strdup(token);
     int i = 1;
     while ((token = strtok(NULL, " ")) != NULL) {
-        (*argv)[i++] = strdup(token);
+        argv[i++] = strdup(token);
     }
-    (*argv)[i] = NULL;
+    argv[i] = NULL;
+    return argv;
     free(command_copy);
 }
 
-void free_argv(char **argv) {
+static void free_argv(char **argv) {
     char **tmp = argv;
     while (*tmp != NULL) {
         free(*tmp++);
@@ -53,11 +64,11 @@ void free_argv(char **argv) {
     free(argv);
 }
 
-int execute_file(char *argv[], char *envp[]) {
+static int execute_file(char *command, char *argv[], char *envp[]) {
     int status;
     pid_t pid = fork();
     if (pid == 0) {
-        if ((status = execve(argv[0], argv, envp)) == -1) {
+        if ((status = execve(command, argv, envp)) == -1) {
             printf("Error: %s\n", strerror(errno));
             exit(1);
         }
@@ -68,6 +79,44 @@ int execute_file(char *argv[], char *envp[]) {
     return 0;
 }
 
+static char *search_path(const char *command) {
+    const char *path = getenv("PATH");
+
+    char *p = strdup(path), *token;
+    if (p == NULL) {
+        printf("Memory allocation failed\n");
+        exit(1);
+    }
+
+    DIR *dir;
+    struct dirent *entry;
+
+    token = strtok(p, ":");
+    while (token != NULL) {
+        dir = opendir(token);
+        if (dir == NULL) {
+            return NULL;
+        }
+        (void)command;
+        while ((entry = readdir(dir)) != NULL) {
+            if (strcmp(entry->d_name, command) == 0) {
+                size_t length = strlen(token) + entry->d_namlen + 1;
+                char *full_command = malloc(sizeof(char) * length);
+                sprintf(full_command, "%s/%s", token, entry->d_name);
+                return full_command;
+            }
+        }
+        token = strtok(NULL, ":");
+    }
+
+    closedir(dir);
+    free(p);
+
+    return NULL;
+}
+
+static void print_prompt(int exit_status) { printf("[%d] $ ", exit_status); }
+
 int main(int argc, char *argv[], char *envp[]) {
     (void)argc;
     (void)argv;
@@ -77,50 +126,55 @@ int main(int argc, char *argv[], char *envp[]) {
     sa.sa_flags = 0;
     sigaction(SIGINT, &sa, NULL);
 
-    int exit_status = -1;
-    char prompt[64];
+    int exit_status = 0;
 
     while (1) {
-        if (exit_status > -1) {
-            sprintf(prompt, "[%d] $ ", exit_status);
-            exit_status = -1;
-        } else {
-            sprintf(prompt, "$ ");
-        }
-        write(STDOUT_FILENO, prompt, strlen(prompt));
+        print_prompt(exit_status);
 
-        size_t capacity = 64;
-        char *command = malloc(sizeof(char) * capacity);
-        if (command == NULL) {
+        const size_t capacity = 64;
+        char *command_string = malloc(sizeof(char) * capacity);
+        if (command_string == NULL) {
             printf("Memory allocation failed\n");
-            exit(1);
+            return 1;
         }
-        read_command(&command, capacity);
+        read_command(&command_string, capacity);
 
         if (received_sigint == 1) {
             received_sigint = 0;
-            free(command);
+            free(command_string);
             putchar('\n');
             continue;
-        } else if (command[0] == EOF) {
-            free(command);
+        } else if (command_string[0] == EOF) {
+            free(command_string);
             putchar('\n');
             return 0;
         }
 
-        char **argv = malloc(sizeof(*argv) * 10);
+        char **argv = create_argv(command_string);
         if (argv == NULL) {
             printf("Memory allocation failed\n");
-            exit(1);
+            return 1;
         }
-        parse_argv(&argv, command);
 
-        int is_builtin = execute_builtin(argv);
-        if (is_builtin == -1) {
-            exit_status = execute_file(argv, envp);
-        };
+        if (strchr(argv[0], '/') == NULL) {
+            builtin_func_t *builtin_func;
+            builtin_func = find_builtin(argv[0]);
+            if (builtin_func != NULL) {
+                exit_status = builtin_func(argv);
+            } else {
+                char *command = search_path(argv[0]);
+                if (command != NULL) {
+                    exit_status = execute_file(command, argv, envp);
+                    free(command);
+                } else {
+                    exit_status = execute_file(argv[0], argv, envp);
+                }
+            }
+        } else {
+            exit_status = execute_file(argv[0], argv, envp);
+        }
 
-        free(command);
+        free(command_string);
         free_argv(argv);
     }
 
