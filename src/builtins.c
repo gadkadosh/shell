@@ -22,6 +22,9 @@ static int pwd(char *argv[]) {
 
 static int cd(char *argv[]) {
     char *filename = argv[1];
+    if (filename == NULL) {
+        filename = getenv("HOME");
+    }
     int ret = chdir(filename);
     if (ret == -1) {
         printf("Error(cd): %s\n", strerror(errno));
